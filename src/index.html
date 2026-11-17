@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'">
+<title>Account Hub</title>
+<style>
+  :root{
+    --tint: .35;
+    --glass: rgba(255,255,255,var(--tint)); --card: rgba(255,255,255,.55); --solid:#ffffff;
+    --text:#0b1220; --muted:#334155; --line: rgba(255,255,255,.55); --edge: rgba(15,23,42,.10);
+    --hover: rgba(255,255,255,.45); --accent:#2563eb; --tile: rgba(255,255,255,.22);
+    --shadow: 0 18px 50px rgba(15,23,42,.25); --tshadow: 0 1px 2px rgba(255,255,255,.6);
+  }
+  body.dark{
+    --glass: rgba(15,18,28,var(--tint)); --card: rgba(30,36,50,.6); --solid:#1b2130;
+    --text:#f8fafc; --muted:#cbd5e1; --line: rgba(255,255,255,.14); --edge: rgba(255,255,255,.10);
+    --hover: rgba(255,255,255,.14); --accent:#60a5fa; --tile: rgba(255,255,255,.06);
+    --shadow: 0 18px 50px rgba(0,0,0,.5); --tshadow: 0 1px 2px rgba(0,0,0,.6);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:transparent;font-family:"Segoe UI","Nirmala UI",system-ui,sans-serif;color:var(--text);user-select:none;overflow:hidden}
+  .panel{position:absolute;inset:8px;background:var(--glass);border-radius:18px;
+    border:1px solid var(--line);box-shadow:var(--shadow), inset 0 1px 0 rgba(255,255,255,.35);display:flex;flex-direction:column;overflow:hidden}
+  /* real OS blur: window edge = panel edge (Windows rounds the corners) */
+  body.os-glass .panel{inset:0;border-radius:8px;box-shadow:inset 0 1px 0 rgba(255,255,255,.35), inset 0 0 0 1px var(--line)}
+  .panel::before{content:"";position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(135deg, rgba(255,255,255,.22), rgba(255,255,255,0) 45%, rgba(255,255,255,.06));}
+  header h1, .label{text-shadow:var(--tshadow)}
+  header{display:flex;align-items:center;gap:10px;padding:12px 12px 10px 16px;-webkit-app-region:drag}
+  header .logo{width:22px;height:22px;border-radius:6px}
+  header h1{font-size:14px;font-weight:600;letter-spacing:.2px;flex:1;white-space:nowrap}
+  header h1 span{color:var(--muted);font-weight:400;margin-left:6px}
+  .search{-webkit-app-region:no-drag;width:150px;height:28px;border-radius:8px;border:1px solid var(--line);
+    background:var(--card);color:var(--text);padding:0 10px;font:inherit;font-size:12px;outline:none}
+  .search:focus{border-color:var(--accent)}
+  .ibtn{-webkit-app-region:no-drag;width:28px;height:28px;border:0;border-radius:8px;background:transparent;color:var(--muted);
+    display:grid;place-items:center;cursor:pointer}
+  .ibtn:hover{background:var(--hover);color:var(--text)}
+  .ibtn svg{width:16px;height:16px}
+  main{flex:1;overflow-y:auto;padding:6px 14px 16px}
+  main::-webkit-scrollbar{width:8px} main::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:6px}
+  .tile{display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 6px 12px;border-radius:14px;cursor:pointer;
+    position:relative;transition:background .15s, transform .15s, box-shadow .15s;background:var(--tile);border:1px solid var(--edge)}
+  .tile:hover{background:var(--hover);box-shadow:0 6px 18px rgba(0,0,0,.12)}
+  .grid{gap:10px !important}
+  .tile:active{transform:scale(.96)}
+  .tile.launching .avatar{animation:pulse .6s ease}
+  @keyframes pulse{0%{transform:scale(1)}40%{transform:scale(1.12)}100%{transform:scale(1)}}
+  .avatar{width:64px;height:64px;border-radius:50%;object-fit:cover;background:#cbd5e1;display:grid;place-items:center;
+    font-size:26px;font-weight:600;color:#fff;box-shadow:0 0 0 3px rgba(255,255,255,.85), 0 4px 14px rgba(0,0,0,.2)}
+  .badge{position:absolute;top:58px;left:calc(50% + 16px);width:22px;height:22px;border-radius:50%;background:var(--solid);
+    display:grid;place-items:center;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+  .badge img{width:16px;height:16px}
+  .label{font-size:12px;font-weight:500;max-width:100%;overflow:hidden;text-align:center;word-break:break-all;line-height:1.35;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+    padding-bottom:4px;border-bottom:2px solid transparent}
+  .tile:hover .label{border-bottom-color:var(--accent)}
+  .sub{font-size:10.5px;color:var(--muted);margin-top:-6px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .add .avatar{background:transparent;border:2px dashed var(--muted);color:var(--muted);box-shadow:none;font-weight:300;font-size:32px}
+  .empty{padding:40px 10px;text-align:center;color:var(--muted);font-size:13px;line-height:1.7}
+
+  /* context menu & popover */
+  .menu{position:fixed;z-index:20;background:var(--solid);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:4px;min-width:170px;display:none}
+  .menu button{display:block;width:100%;text-align:left;padding:8px 10px;border:0;background:transparent;color:var(--text);font:inherit;font-size:12.5px;border-radius:6px;cursor:pointer}
+  .menu button:hover{background:var(--hover)}
+
+  /* settings */
+  .settings{position:absolute;inset:0;background:var(--solid);backdrop-filter:blur(22px);display:none;flex-direction:column;z-index:10}
+  .settings.open{display:flex}
+  .settings .body{flex:1;overflow-y:auto;padding:4px 18px 18px}
+  .group{margin-top:14px}
+  .group h3{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:8px;font-weight:600}
+  .row{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--tile);border:1px solid var(--edge);border-radius:10px;margin-bottom:6px;font-size:13px}
+  .row .grow{flex:1;min-width:0}
+  .row small{display:block;color:var(--muted);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .btn{border:1px solid var(--line);background:transparent;color:var(--text);border-radius:8px;padding:5px 10px;font:inherit;font-size:12px;cursor:pointer}
+  .btn:hover{border-color:var(--accent);color:var(--accent)}
+  .switch{position:relative;width:36px;height:20px;flex:none}
+  .switch input{opacity:0;width:0;height:0}
+  .switch span{position:absolute;inset:0;background:#cbd5e1;border-radius:20px;transition:.2s;cursor:pointer}
+  .switch span::before{content:"";position:absolute;width:16px;height:16px;left:2px;top:2px;background:#fff;border-radius:50%;transition:.2s}
+  .switch input:checked + span{background:var(--accent)}
+  .switch input:checked + span::before{transform:translateX(16px)}
+  select{border:1px solid var(--edge);background:var(--solid);color:var(--text);border-radius:8px;padding:4px 8px;font:inherit;font-size:12px}
+  .hidden-list .row{padding:6px 12px}
+</style>
+</head>
+<body>
+<div class="panel">
+  <header>
+    <img class="logo" src="icon.png" alt="">
+    <h1>Account Hub<span id="count"></span></h1>
+    <input class="search" id="search" placeholder="Search email…">
+    <button class="ibtn" id="btnRefresh" title="Refresh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></button>
+    <button class="ibtn" id="btnSettings" title="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+    <button class="ibtn" id="btnMin" title="Minimize"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/></svg></button>
+  </header>
+  <main><div class="grid" id="grid"></div><div class="empty" id="empty" style="display:none"></div></main>
+
+  <section class="settings" id="settings">
+    <header>
+      <h1>Settings</h1>
+      <button class="ibtn" id="btnCloseSettings" title="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </header>
+    <div class="body">
+      <div class="group"><h3>ব্রাউজার (কোন ব্রাউজারের প্রোফাইল দেখাবে ও কোথায় খুলবে)</h3><div id="browserRows"></div></div>
+      <div class="group"><h3>দেখানো</h3>
+        <div class="row"><div class="grow">নিচে কী লেখা থাকবে</div>
+          <select id="labelSel"><option value="email">ইমেল</option><option value="name">নাম</option></select></div>
+        <div class="row"><div class="grow">গ্লাস স্টাইল<small>পেছনের জিনিস ঝাপসা করে দেখাবে</small></div>
+          <select id="glassSel"><option value="acrylic">Acrylic (সবচেয়ে সুন্দর)</option><option value="blur">Blur (হালকা)</option><option value="clear">স্বচ্ছ (ঝাপসা ছাড়া)</option></select></div>
+        <div class="row"><div class="grow">গ্লাসের ঘনত্ব<small>কম = বেশি স্বচ্ছ</small></div>
+          <input type="range" id="tintRange" min="0.05" max="0.9" step="0.05" style="width:140px;accent-color:var(--accent)"></div>
+        <div class="row"><div class="grow">Dark mode</div><label class="switch"><input type="checkbox" id="darkChk"><span></span></label></div>
+        <div class="row"><div class="grow">সবসময় উপরে থাকবে (Always on top)</div><label class="switch"><input type="checkbox" id="topChk"><span></span></label></div>
+        <div class="row"><div class="grow">Windows চালু হলে অটো খুলবে</div><label class="switch"><input type="checkbox" id="startChk"><span></span></label></div>
+      </div>
+      <div class="group hidden-list" id="hiddenGroup"><h3>লুকানো প্রোফাইল</h3><div id="hiddenRows"></div></div>
+    </div>
+  </section>
+</div>
+
+<div class="menu" id="menu"></div>
+
+<script>
+const ICONS = {
+  chrome: 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><circle cx="24" cy="24" r="22" fill="#DB4437"/><path d="M24 24 43 13A22 22 0 0 1 35 43Z" fill="#F4B400"/><path d="M24 24 35 43A22 22 0 0 1 5 13Z" fill="#0F9D58"/><path d="M24 24 5 13A22 22 0 0 1 43 13Z" fill="#DB4437"/><circle cx="24" cy="24" r="10" fill="#fff"/><circle cx="24" cy="24" r="7.5" fill="#4285F4"/></svg>'),
+  edge: 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><circle cx="24" cy="24" r="22" fill="#0C8DD6"/><circle cx="27" cy="27" r="9" fill="#5DD25E"/><circle cx="24" cy="24" r="6" fill="#fff"/></svg>'),
+  brave: 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><path d="M24 3 40 9l-2 22-14 14L10 31 8 9Z" fill="#FB542B"/><path d="M24 14l7 3-2 12-5 5-5-5-2-12Z" fill="#fff"/></svg>')
+};
+const COLORS = ['#ef4444','#f97316','#eab308','#22c55e','#14b8a6','#0ea5e9','#6366f1','#a855f7','#ec4899','#64748b'];
+const $ = id => document.getElementById(id);
+let state = null, query = '';
+
+function colorFor(s){ let h=0; for(const c of s) h=(h*31+c.charCodeAt(0))>>>0; return COLORS[h%COLORS.length]; }
+function labelOf(p){ return state.config.label === 'name' ? (p.name || p.email) : (p.email || p.name); }
+function subOf(p){ return state.config.label === 'name' ? p.email : (p.email ? p.profileName : ''); }
+function el(tag, cls, text){ const e=document.createElement(tag); if(cls) e.className=cls; if(text!=null) e.textContent=text; return e; }
+
+function applyLook(c){
+  document.body.classList.toggle('dark', c.theme === 'dark');
+  document.body.classList.toggle('os-glass', state.isWindows && c.glass !== 'clear');
+  document.documentElement.style.setProperty('--tint', c.tint ?? .35);
+}
+async function load(){
+  state = await window.hub.getState();
+  applyLook(state.config);
+  render(); renderSettings();
+}
+
+function render(){
+  const grid = $('grid'); grid.innerHTML = '';
+  const enabledIds = Object.keys(state.browsers).filter(id => state.config.enabled[id]);
+  const multi = enabledIds.length > 1;
+  const visible = state.profiles.filter(p => !p.hidden);
+  const q = query.toLowerCase();
+  const shown = visible.filter(p => !q || (p.email+' '+p.name+' '+p.profileName).toLowerCase().includes(q));
+  $('count').textContent = visible.length ? `· ${visible.length}` : '';
+
+  for (const p of shown){
+    const t = el('div','tile'); t.title = `${p.name}\n${p.email || '(সাইন-ইন করা নেই)'}\n${p.browserLabel} · ${p.dir}`;
+    let av;
+    if (p.picture){ av = el('img','avatar'); av.src = p.picture; av.referrerPolicy='no-referrer';
+      av.onerror = () => { const f = letterAvatar(p); av.replaceWith(f); }; }
+    else av = letterAvatar(p);
+    t.append(av);
+    if (multi){ const b = el('div','badge'); const i = el('img'); i.src = ICONS[p.browser]; b.append(i); t.append(b); }
+    t.append(el('div','label', labelOf(p)));
+    const s = subOf(p); if (s) t.append(el('div','sub', s));
+    t.onclick = async () => { t.classList.add('launching'); await window.hub.openProfile(p.browser, p.dir); setTimeout(()=>t.classList.remove('launching'),700); };
+    t.oncontextmenu = e => { e.preventDefault(); showMenu(e.clientX, e.clientY, [
+      ['এই প্রোফাইল খুলুন', () => window.hub.openProfile(p.browser, p.dir)],
+      ...(p.email ? [['ইমেল কপি করুন', () => navigator.clipboard.writeText(p.email)]] : []),
+      ['লুকিয়ে রাখুন (Hide)', () => setHidden(p.key, true)]
+    ]); };
+    grid.append(t);
+  }
+
+  if (!q && enabledIds.length){
+    const add = el('div','tile add'); add.title = 'নতুন প্রোফাইল খুলে নতুন ইমেল দিয়ে লগইন করুন';
+    add.append(el('div','avatar','+'), el('div','label','নতুন যোগ করুন'));
+    add.onclick = e => {
+      if (!multi) return window.hub.addProfile(enabledIds[0]);
+      showMenu(e.clientX, e.clientY, enabledIds.map(id => [`${state.browsers[id].label}-এ নতুন প্রোফাইল`, () => window.hub.addProfile(id)]));
+    };
+    grid.append(add);
+  }
+
+  const empty = $('empty');
+  if (!enabledIds.length){ empty.style.display='block'; empty.innerHTML='কোনো ব্রাউজার চালু নেই।<br>⚙ Settings থেকে Chrome / Edge / Brave চালু করুন।'; }
+  else if (!visible.length){ empty.style.display='block'; empty.textContent='কোনো প্রোফাইল পাওয়া যায়নি। "+" চেপে নতুন ইমেল দিয়ে লগইন করুন।'; }
+  else empty.style.display='none';
+}
+
+function letterAvatar(p){
+  const src = (p.email || p.name || '?').trim();
+  const d = el('div','avatar', src[0].toUpperCase());
+  d.style.background = colorFor(src); return d;
+}
+
+function showMenu(x, y, items){
+  const m = $('menu'); m.innerHTML = '';
+  for (const [text, fn] of items){ const b = el('button', null, text); b.onclick = () => { hideMenu(); fn(); }; m.append(b); }
+  m.style.display = 'block';
+  const r = m.getBoundingClientRect();
+  m.style.left = Math.min(x, innerWidth - r.width - 8) + 'px';
+  m.style.top = Math.min(y, innerHeight - r.height - 8) + 'px';
+}
+function hideMenu(){ $('menu').style.display = 'none'; }
+document.addEventListener('click', e => { if (!$('menu').contains(e.target) && !e.target.closest('.add')) hideMenu(); });
+
+async function save(patch){ state.config = await window.hub.saveConfig(patch); applyLook(state.config); await load(); }
+function setHidden(key, hide){
+  const set = new Set(state.config.hidden); hide ? set.add(key) : set.delete(key);
+  save({ hidden: [...set] });
+}
+
+function renderSettings(){
+  const c = state.config, rows = $('browserRows'); rows.innerHTML = '';
+  for (const [id, b] of Object.entries(state.browsers)){
+    const r = el('div','row');
+    const ic = el('img'); ic.src = ICONS[id]; ic.style.width='20px';
+    const g = el('div','grow'); g.append(el('div',null,b.label + (b.installed ? '' : ' (পাওয়া যায়নি)')), el('small',null, b.exe || '.exe পাওয়া যায়নি — "পথ দিন" চাপুন'));
+    const pick = el('button','btn','পথ দিন'); pick.onclick = async () => { if (await window.hub.pickExe(id)) load(); };
+    const sw = el('label','switch'); const chk = el('input'); chk.type='checkbox'; chk.checked=!!c.enabled[id];
+    chk.onchange = () => save({ enabled: { ...c.enabled, [id]: chk.checked } });
+    sw.append(chk, el('span'));
+    r.append(ic, g, pick, sw); rows.append(r);
+  }
+  $('labelSel').value = c.label;
+  $('darkChk').checked = c.theme === 'dark';
+  $('glassSel').value = c.glass || 'acrylic';
+  $('tintRange').value = c.tint ?? .35;
+  $('topChk').checked = !!c.alwaysOnTop;
+  $('startChk').checked = !!c.startWithWindows;
+
+  const hidden = state.profiles.filter(p => p.hidden), hr = $('hiddenRows'); hr.innerHTML = '';
+  $('hiddenGroup').style.display = hidden.length ? 'block' : 'none';
+  for (const p of hidden){
+    const r = el('div','row'); r.append(el('div','grow', `${p.email || p.name} · ${p.browserLabel}`));
+    const b = el('button','btn','আবার দেখাও'); b.onclick = () => setHidden(p.key, false); r.append(b); hr.append(r);
+  }
+}
+
+$('labelSel').onchange = e => save({ label: e.target.value });
+$('glassSel').onchange = e => save({ glass: e.target.value });
+$('tintRange').oninput = e => document.documentElement.style.setProperty('--tint', e.target.value);
+$('tintRange').onchange = e => save({ tint: parseFloat(e.target.value) });
+$('darkChk').onchange = e => save({ theme: e.target.checked ? 'dark' : 'light' });
+$('topChk').onchange = e => save({ alwaysOnTop: e.target.checked });
+$('startChk').onchange = e => save({ startWithWindows: e.target.checked });
+$('btnSettings').onclick = () => $('settings').classList.add('open');
+$('btnCloseSettings').onclick = () => $('settings').classList.remove('open');
+$('btnRefresh').onclick = load;
+$('btnMin').onclick = () => window.hub.win('minimize');
+$('search').oninput = e => { query = e.target.value; render(); };
+window.hub.onRefresh(load);
+load();
+</script>
+</body>
+</html>
